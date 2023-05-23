@@ -48,6 +48,10 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
     signin.HandleFunc("/signIn", httpWorkerAdapter.SignIn)
 	signin.Use(MiddleWareHandlerHeader)
 
+	verify := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
+    verify.HandleFunc("/verify", httpWorkerAdapter.Verify)
+	verify.Use(MiddleWareHandlerHeader)
+
 	srv := http.Server{
 		Addr:         ":" +  strconv.Itoa(h.httpAppServer.Server.Port),      	
 		Handler:      myRouter,                	          

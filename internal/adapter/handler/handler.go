@@ -78,3 +78,25 @@ func (h *HttpWorkerAdapter) RefreshToken(rw http.ResponseWriter, req *http.Reque
 	json.NewEncoder(rw).Encode(res)
 	return
 }
+
+func (h *HttpWorkerAdapter) Verify(rw http.ResponseWriter, req *http.Request) {
+	childLogger.Debug().Msg("Verify")
+
+	user := core.User{}
+	err := json.NewDecoder(req.Body).Decode(&user)
+    if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+        return
+    }
+	
+	res, err := h.workerService.Verify(user)
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(err.Error())
+		return
+	}
+
+	json.NewEncoder(rw).Encode(res)
+	return
+}

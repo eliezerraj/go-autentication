@@ -37,6 +37,7 @@ var (
 	ErrStatusUnauthorized = errors.New("Token Inválido")
 	ErrBadRequest		 = errors.New("Erro Interno")
 	ErrTokenStillValid	= errors.New("O Token ainda está válido, fazer o refresh com 10 minutos antes da expiração")
+	ErrTokenInValid	= errors.New("O Token está inválido")
 )
 
 func HandlerHttpError(w http.ResponseWriter, err error) { 
