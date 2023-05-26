@@ -52,6 +52,14 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
     verify.HandleFunc("/verify", httpWorkerAdapter.Verify)
 	verify.Use(MiddleWareHandlerHeader)
 
+	signinrsa := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
+    signinrsa.HandleFunc("/signInRSA", httpWorkerAdapter.SignInRSA)
+	signinrsa.Use(MiddleWareHandlerHeader)
+
+	verifyrsa := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
+    verifyrsa.HandleFunc("/verifyRSA", httpWorkerAdapter.VerifyRSA)
+	verifyrsa.Use(MiddleWareHandlerHeader)
+
 	srv := http.Server{
 		Addr:         ":" +  strconv.Itoa(h.httpAppServer.Server.Port),      	
 		Handler:      myRouter,                	          

@@ -4,8 +4,6 @@ import(
 	"github.com/rs/zerolog/log"
 	"encoding/json"
 	"net/http"
-//	"io/ioutil"
-
 
 	"github.com/go-autentication/internal/erro"
 	"github.com/go-autentication/internal/core"
@@ -91,6 +89,50 @@ func (h *HttpWorkerAdapter) Verify(rw http.ResponseWriter, req *http.Request) {
     }
 	
 	res, err := h.workerService.Verify(user)
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(err.Error())
+		return
+	}
+
+	json.NewEncoder(rw).Encode(res)
+	return
+}
+
+func (h *HttpWorkerAdapter) SignInRSA(rw http.ResponseWriter, req *http.Request) {
+	childLogger.Debug().Msg("SignInRSA")
+
+	user := core.User{}
+	err := json.NewDecoder(req.Body).Decode(&user)
+    if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+        return
+    }
+	
+	res, err := h.workerService.SignInRSA(user)
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(err.Error())
+		return
+	}
+
+	json.NewEncoder(rw).Encode(res)
+	return
+}
+
+func (h *HttpWorkerAdapter) VerifyRSA(rw http.ResponseWriter, req *http.Request) {
+	childLogger.Debug().Msg("VerifyRSA")
+
+	user := core.User{}
+	err := json.NewDecoder(req.Body).Decode(&user)
+    if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+        return
+    }
+	
+	res, err := h.workerService.VerifyRSA(user)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(rw).Encode(err.Error())

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/rs/zerolog/log"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/go-autentication/internal/core"
 	"github.com/go-autentication/internal/erro"
@@ -13,18 +13,19 @@ import (
 )
 
 var childLogger = log.With().Str("service", "service").Logger()
-var jwtKey 	= []byte("my_secret_key")
 var kid 	= "key-id-0001"
 var issuer 	= "xpto corporation"
 
 type WorkerService struct {
+	secretKey	[]byte
 	//workerRepository 		*db_postgre.WorkerRepository
 }
 
-func NewWorkerService() *WorkerService{
+func NewWorkerService(secretKey string) *WorkerService{
 	childLogger.Debug().Msg("NewWorkerService")
 
 	return &WorkerService{
+		secretKey:  []byte(secretKey),
 		//workerRepository: workerRepository,
 	}
 }
@@ -46,7 +47,7 @@ func (w WorkerService) SignIn(user core.User) (*core.User ,error){
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["kid"] = kid
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString(w.secretKey)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,7 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 
 	claims := &core.JwtData{}
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
+		return w.secretKey, nil
 	})
 
 	if !tkn.Valid {
@@ -90,7 +91,7 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 	
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["kid"] = kid
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString(w.secretKey)
 	if err != nil {
 		return nil, erro.ErrBadRequest
 	}
@@ -105,7 +106,7 @@ func (w WorkerService) Verify(user core.User) (*core.User ,error){
 	claims := &core.JwtData{}
 
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
+		return w.secretKey, nil
 	})
 
 	if !tkn.Valid {

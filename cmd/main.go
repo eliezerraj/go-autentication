@@ -15,9 +15,10 @@ import(
 var(
 	logLevel 	= zerolog.DebugLevel
 	version 	= "go autentication version 1.0"
-	httpAppServer 		core.HttpAppServer
-	server				core.Server
-	envDB	 			core.DatabaseRDS
+	httpAppServer 	core.HttpAppServer
+	server		core.Server
+	envDB	 	core.DatabaseRDS
+	secretKey 	= "my_secret_key"
 )
 
 func init(){
@@ -75,7 +76,7 @@ func main(){
 				Msg("Enviroment Variables")
 	log.Debug().Msg("--------------------")
 
-	workerService := service.NewWorkerService()
+	workerService := service.NewWorkerService(secretKey)
 	httpWorkerAdapter := handler.NewHttpWorkerAdapter(workerService)
 	httpServer := handler.NewHttpAppServer(httpAppServer)
 
