@@ -2,6 +2,7 @@ package service
 
 import (
 	"time"
+	"errors"
 
 	"github.com/rs/zerolog/log"
 	"github.com/golang-jwt/jwt/v4"
@@ -12,7 +13,9 @@ import (
 )
 
 var childLogger = log.With().Str("service", "service").Logger()
-var jwtKey = []byte("my_secret_key")
+var jwtKey 	= []byte("my_secret_key")
+var kid 	= "key-id-0001"
+var issuer 	= "xpto corporation"
 
 type WorkerService struct {
 	//workerRepository 		*db_postgre.WorkerRepository
@@ -31,16 +34,18 @@ func (w WorkerService) SignIn(user core.User) (*core.User ,error){
 
 	expirationTime := time.Now().Add(5 * time.Minute)
 
-	jwtData := &core.JwtData{
+	claims := &core.JwtData{
 		Username: user.UserId,
 		Scope: "escopo 123",
 		RegisteredClaims: jwt.RegisteredClaims{
-			// JWT expiry time is unix milliseconds
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer: issuer,
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtData)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["kid"] = kid
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
 		return nil, err
@@ -58,16 +63,23 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
-	if err != nil {
-		if err == jwt.ErrSignatureInvalid {
-			return nil, erro.ErrStatusUnauthorized
-		}
-		return nil, erro.ErrTokenInValid
-	}
 
 	if !tkn.Valid {
 		return nil, erro.ErrTokenInValid
+	} else if tkn.Valid {
+		// Token valid
+	} else if errors.Is(err, jwt.ErrTokenMalformed){
+		return nil, erro.ErrTokenMalformed
+	} else if errors.Is(err, jwt.ErrTokenSignatureInvalid){
+		return nil, erro.ErrTokenSignatureInvalid
+	} else if errors.Is(err, jwt.ErrTokenExpired){
+		return nil, erro.ErrTokenExpired
+	} else if errors.Is(err, jwt.ErrTokenNotValidYet){ 
+		return nil, erro.ErrTokenNotValidYet
+	} else {
+		return nil, erro.ErrTokenUnHandled
 	}
+
 
 	if time.Until(claims.ExpiresAt.Time) > 1*time.Minute {
 		return nil, erro.ErrTokenStillValid
@@ -75,7 +87,9 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 
 	expirationTime := time.Now().Add(5 * time.Minute)
 	claims.ExpiresAt = jwt.NewNumericDate(expirationTime)
+	
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["kid"] = kid
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
 		return nil, erro.ErrBadRequest
@@ -89,19 +103,29 @@ func (w WorkerService) Verify(user core.User) (*core.User ,error){
 	childLogger.Debug().Msg("Verify")
 
 	claims := &core.JwtData{}
+
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
-	if err != nil {
-		if err == jwt.ErrSignatureInvalid {
-			return nil, erro.ErrStatusUnauthorized
-		}
-		return nil, erro.ErrTokenInValid
-	}
 
 	if !tkn.Valid {
 		return nil, erro.ErrTokenInValid
+	} else if tkn.Valid {
+		// Token valid
+	} else if errors.Is(err, jwt.ErrTokenMalformed){
+		return nil, erro.ErrTokenMalformed
+	} else if errors.Is(err, jwt.ErrTokenSignatureInvalid){
+		return nil, erro.ErrTokenSignatureInvalid
+	} else if errors.Is(err, jwt.ErrTokenExpired){
+		return nil, erro.ErrTokenExpired
+	} else if errors.Is(err, jwt.ErrTokenNotValidYet){ 
+		return nil, erro.ErrTokenNotValidYet
+	} else {
+		return nil, erro.ErrTokenUnHandled
 	}
+
+	user.Status = "Verified-OK"
+	user.Token = ""
 
 	return &user, nil
 }

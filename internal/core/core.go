@@ -2,7 +2,9 @@ package core
 
 import (
 	//"time"
+
 	"github.com/golang-jwt/jwt/v4"
+
 )
 
 type HttpAppServer struct {
@@ -40,6 +42,7 @@ type DatabaseRDS struct {
 type User struct {
     UserId 				string `json:"userId,omitempty"`
     Password  			string `json:"password,omitempty"`
+	Status  			string `json:"status,omitempty"`
 	Token				string `json:"token,omitempty"`
 }
 
