@@ -40,9 +40,9 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
     health.HandleFunc("/health", httpWorkerAdapter.Health)
 	health.Use(MiddleWareHandlerHeader)
 
-	RefreshToken := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
-    RefreshToken.HandleFunc("/refreshToken", httpWorkerAdapter.RefreshToken)
-	RefreshToken.Use(MiddleWareHandlerHeader)
+	refreshToken := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
+    refreshToken.HandleFunc("/refreshToken", httpWorkerAdapter.RefreshToken)
+	refreshToken.Use(MiddleWareHandlerHeader)
 
 	signin := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
     signin.HandleFunc("/signIn", httpWorkerAdapter.SignIn)
@@ -59,6 +59,10 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
 	verifyrsa := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
     verifyrsa.HandleFunc("/verifyRSA", httpWorkerAdapter.VerifyRSA)
 	verifyrsa.Use(MiddleWareHandlerHeader)
+
+	refreshRSAToken := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
+    refreshRSAToken.HandleFunc("/refreshRSAToken", httpWorkerAdapter.RefreshRSAToken)
+	refreshRSAToken.Use(MiddleWareHandlerHeader)
 
 	srv := http.Server{
 		Addr:         ":" +  strconv.Itoa(h.httpAppServer.Server.Port),      	

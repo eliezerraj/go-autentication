@@ -3,6 +3,7 @@ package main
 import(
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -10,14 +11,17 @@ import(
 	"github.com/go-autentication/internal/core"
 	"github.com/go-autentication/internal/service"
 	"github.com/go-autentication/internal/adapter/handler"
+	"github.com/go-autentication/internal/repository/db_postgre"
 )
 
 var(
 	logLevel 	= zerolog.DebugLevel
 	version 	= "go autentication version 1.0"
 	httpAppServer 	core.HttpAppServer
-	server		core.Server
-	envDB	 	core.DatabaseRDS
+	server			core.Server
+	envDB	 		core.DatabaseRDS
+	dataBaseHelper 	db_postgre.DatabaseHelper
+	repoDB			db_postgre.WorkerRepository
 	secretKey 	= "my_secret_key"
 )
 
@@ -76,7 +80,26 @@ func main(){
 				Msg("Enviroment Variables")
 	log.Debug().Msg("--------------------")
 
-	workerService := service.NewWorkerService(secretKey)
+	count := 1
+	var err error
+	for {
+		dataBaseHelper, err = db_postgre.NewDatabaseHelper(envDB)
+		if err != nil {
+			if count < 3 {
+				log.Error().Err(err).Msg("Erro na abertura do Database")
+			} else {
+				log.Error().Err(err).Msg("EERRO FATAL na abertura do Database aborting")
+				panic(err)	
+			}
+			time.Sleep(3 * time.Second)
+			count = count + 1
+			continue
+		}
+		break
+	}
+
+	repoDB = db_postgre.NewWorkerRepository(dataBaseHelper)
+	workerService := service.NewWorkerService(secretKey, &repoDB)
 	httpWorkerAdapter := handler.NewHttpWorkerAdapter(workerService)
 	httpServer := handler.NewHttpAppServer(httpAppServer)
 

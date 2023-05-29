@@ -142,3 +142,25 @@ func (h *HttpWorkerAdapter) VerifyRSA(rw http.ResponseWriter, req *http.Request)
 	json.NewEncoder(rw).Encode(res)
 	return
 }
+
+func (h *HttpWorkerAdapter) RefreshRSAToken(rw http.ResponseWriter, req *http.Request) {
+	childLogger.Debug().Msg("RefreshRSAToken")
+
+	user := core.User{}
+	err := json.NewDecoder(req.Body).Decode(&user)
+    if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+        return
+    }
+	
+	res, err := h.workerService.RefreshRSAToken(user)
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(err.Error())
+		return
+	}
+
+	json.NewEncoder(rw).Encode(res)
+	return
+}

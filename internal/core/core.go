@@ -1,8 +1,6 @@
 package core
 
 import (
-	//"time"
-
 	"github.com/golang-jwt/jwt/v5"
 
 )
@@ -41,6 +39,7 @@ type DatabaseRDS struct {
 
 type User struct {
     UserId 				string `json:"userId,omitempty"`
+	UserKid				string `json:"userKid,omitempty"`
     Password  			string `json:"password,omitempty"`
 	Status  			string `json:"status,omitempty"`
 	Token				string `json:"token,omitempty"`

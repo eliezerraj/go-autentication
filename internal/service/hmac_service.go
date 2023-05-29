@@ -6,9 +6,11 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"github.com/go-autentication/internal/core"
 	"github.com/go-autentication/internal/erro"
+	"github.com/go-autentication/internal/repository/db_postgre"
 
 )
 
@@ -17,23 +19,50 @@ var kid 	= "key-id-0001"
 var issuer 	= "xpto corporation"
 
 type WorkerService struct {
-	secretKey	[]byte
-	//workerRepository 		*db_postgre.WorkerRepository
+	secretKey			[]byte
+	workerRepository 	*db_postgre.WorkerRepository
 }
 
-func NewWorkerService(secretKey string) *WorkerService{
+func NewWorkerService(secretKey string, workerRepository *db_postgre.WorkerRepository) *WorkerService{
 	childLogger.Debug().Msg("NewWorkerService")
 
 	return &WorkerService{
 		secretKey:  []byte(secretKey),
-		//workerRepository: workerRepository,
+		workerRepository: workerRepository,
 	}
+}
+
+func (w WorkerService) getKID(user core.User) (*core.User ,error) {
+	childLogger.Debug().Msg("getKID")
+
+	res, err := w.workerRepository.GetConfigJWTUser(user)
+	if err != nil {
+		if errors.Is(err, erro.ErrNotFound) {
+			user.UserKid = uuid.New().String()
+			user.Status = "ACTIVE"
+			res, err = w.workerRepository.AddConfigJWTUser(user)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	user.UserKid = res.UserKid
+	return &user, nil
 }
 
 func (w WorkerService) SignIn(user core.User) (*core.User ,error){
 	childLogger.Debug().Msg("SignIn")
 
-	expirationTime := time.Now().Add(5 * time.Minute)
+	res, err := w.getKID(user)
+	if err != nil {
+		return nil, err
+	}
+
+	user.UserKid = res.UserKid
+	expirationTime := time.Now().Add(60 * time.Minute)
 
 	claims := &core.JwtData{
 		Username: user.UserId,
@@ -46,7 +75,7 @@ func (w WorkerService) SignIn(user core.User) (*core.User ,error){
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token.Header["kid"] = kid
+	token.Header["kid"] = user.UserKid
 	tokenString, err := token.SignedString(w.secretKey)
 	if err != nil {
 		return nil, err
@@ -81,8 +110,7 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 		return nil, erro.ErrTokenUnHandled
 	}
 
-
-	if time.Until(claims.ExpiresAt.Time) > 1*time.Minute {
+	if time.Until(claims.ExpiresAt.Time) > (60 * time.Minute) {
 		return nil, erro.ErrTokenStillValid
 	}
 
@@ -90,7 +118,13 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 	claims.ExpiresAt = jwt.NewNumericDate(expirationTime)
 	
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token.Header["kid"] = kid
+	user.UserId = claims.Username
+	res, err := w.getKID(user)
+	if err != nil {
+		return nil, err
+	}
+	token.Header["kid"] = res.UserKid
+
 	tokenString, err := token.SignedString(w.secretKey)
 	if err != nil {
 		return nil, erro.ErrBadRequest
