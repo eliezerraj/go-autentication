@@ -44,6 +44,7 @@ var (
 	ErrTokenExpired		= errors.New("O Token expirado")
 	ErrTokenNotValidYet	= errors.New("O Token não validado")
 	ErrTokenUnHandled	= errors.New("O Token impossivel de validar")
+	ErrTokenRevoked		= errors.New("O Token está revogado")
 
 	ErrNoRSAKey			= errors.New("No RSA private key found")
 	ErrRSAKeyWrongType	= errors.New("RSA private key is of the wrong type")

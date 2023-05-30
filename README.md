@@ -1,7 +1,5 @@
 # go-autentication
 
-DROP TABLE public."user_authentication";
-
 CREATE TABLE public."user_authentication" (
 	id 				serial4 NOT NULL,
 	user_id 		varchar(100) NULL,
@@ -10,3 +8,5 @@ CREATE TABLE public."user_authentication" (
 	created_date 	timestamp
 );
 
+select * from user_authentication;
+delete from user_authentication;

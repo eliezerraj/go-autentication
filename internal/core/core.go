@@ -37,6 +37,14 @@ type DatabaseRDS struct {
 	Postgres_Driver		string `json:"postgres_driver"`
 }
 
+type DatabaseRedis struct {
+    Host 				string `json:"host"`
+    Port  				string `json:"port"`
+	DatabaseName		string `json:"databaseName"`
+	User				string `json:"user"`
+	Password			string `json:"password"`
+}
+
 type User struct {
     UserId 				string `json:"userId,omitempty"`
 	UserKid				string `json:"userKid,omitempty"`
@@ -50,3 +58,8 @@ type JwtData struct {
 	Scope		string 	`json:"scope"`
 	jwt.RegisteredClaims
 }
+
+type JWTHeader struct {
+	Algorithm 	string `json:"alg,omitempty"`
+	KeyID 		string `json:"kid,omitempty"`
+ }

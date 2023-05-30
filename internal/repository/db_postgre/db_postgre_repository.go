@@ -35,7 +35,7 @@ func (w WorkerRepository) Ping() (bool, error) {
 	client, _ := w.databaseHelper.GetConnection(ctx)
 	err := client.Ping()
 	if err != nil {
-		return false, erro.ErrConnectionDatabase
+		return false, err
 	}
 
 	return true, nil

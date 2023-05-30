@@ -64,6 +64,10 @@ func (h HttpServer) StartHttpAppServer(httpWorkerAdapter *HttpWorkerAdapter) {
     refreshRSAToken.HandleFunc("/refreshRSAToken", httpWorkerAdapter.RefreshRSAToken)
 	refreshRSAToken.Use(MiddleWareHandlerHeader)
 
+	revokeToken := myRouter.Methods(http.MethodPost, http.MethodOptions).Subrouter()
+    revokeToken.HandleFunc("/revokeToken", httpWorkerAdapter.RevokeToken)
+	revokeToken.Use(MiddleWareHandlerHeader)
+
 	srv := http.Server{
 		Addr:         ":" +  strconv.Itoa(h.httpAppServer.Server.Port),      	
 		Handler:      myRouter,                	          

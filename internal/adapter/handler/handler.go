@@ -164,3 +164,25 @@ func (h *HttpWorkerAdapter) RefreshRSAToken(rw http.ResponseWriter, req *http.Re
 	json.NewEncoder(rw).Encode(res)
 	return
 }
+
+func (h *HttpWorkerAdapter) RevokeToken(rw http.ResponseWriter, req *http.Request) {
+	childLogger.Debug().Msg("RevokeToken")
+
+	user := core.User{}
+	err := json.NewDecoder(req.Body).Decode(&user)
+    if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(erro.ErrUnmarshal)
+        return
+    }
+	
+	res, err := h.workerService.RevokeToken(user)
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(err.Error())
+		return
+	}
+
+	json.NewEncoder(rw).Encode(res)
+	return
+}

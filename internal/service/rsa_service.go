@@ -15,6 +15,8 @@ import (
 
 )
 
+var kid 	= "key-id-0001"
+
 func (w WorkerService) getPrivateRSAKey() (*rsa.PrivateKey ,error){
 	childLogger.Debug().Msg("getPrivateRSAKey")
 

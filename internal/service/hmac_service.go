@@ -3,6 +3,7 @@ package service
 import (
 	"time"
 	"errors"
+	"encoding/json"
 
 	"github.com/rs/zerolog/log"
 	"github.com/golang-jwt/jwt/v5"
@@ -11,24 +12,28 @@ import (
 	"github.com/go-autentication/internal/core"
 	"github.com/go-autentication/internal/erro"
 	"github.com/go-autentication/internal/repository/db_postgre"
+	"github.com/go-autentication/internal/repository/db_redis"
 
 )
 
 var childLogger = log.With().Str("service", "service").Logger()
-var kid 	= "key-id-0001"
 var issuer 	= "xpto corporation"
 
 type WorkerService struct {
 	secretKey			[]byte
 	workerRepository 	*db_postgre.WorkerRepository
+	redisRepository 	*db_redis.RedisRepository
 }
 
-func NewWorkerService(secretKey string, workerRepository *db_postgre.WorkerRepository) *WorkerService{
+func NewWorkerService(	secretKey string, 
+						workerRepository *db_postgre.WorkerRepository,
+						redisRepository *db_redis.RedisRepository) *WorkerService{
 	childLogger.Debug().Msg("NewWorkerService")
 
 	return &WorkerService{
 		secretKey:  []byte(secretKey),
 		workerRepository: workerRepository,
+		redisRepository: redisRepository,
 	}
 }
 
@@ -118,12 +123,17 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 	claims.ExpiresAt = jwt.NewNumericDate(expirationTime)
 	
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	user.UserId = claims.Username
+	
+	// Refresh the kid key, in case of revoke
 	res, err := w.getKID(user)
 	if err != nil {
 		return nil, err
 	}
+	user.UserId = claims.Username
 	token.Header["kid"] = res.UserKid
+
+	// Check token black list
+	w.redisRepository.GetKey(res.UserKid)
 
 	tokenString, err := token.SignedString(w.secretKey)
 	if err != nil {
@@ -159,8 +169,29 @@ func (w WorkerService) Verify(user core.User) (*core.User ,error){
 		return nil, erro.ErrTokenUnHandled
 	}
 
+	jsonData, _ := json.Marshal(tkn.Header)
+	var jwtHeader core.JWTHeader
+	err = json.Unmarshal(jsonData, &jwtHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	ok, err := w.redisRepository.GetKey(jwtHeader.KeyID)
+	if ok == true {
+		return nil, erro.ErrTokenRevoked
+	}
+
 	user.Status = "Verified-OK"
 	user.Token = ""
 
 	return &user, nil
+}
+
+func (w WorkerService) RevokeToken(user core.User) (bool, error){
+	childLogger.Debug().Msg("RevokeToken")
+
+	// Check token black list
+	w.redisRepository.AddKey(user)
+
+	return true, nil
 }
