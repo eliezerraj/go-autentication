@@ -30,7 +30,9 @@ var(
 	redisHelper 	db_redis.RedisHelper
 	redisDB			db_redis.RedisRepository
 
-	secretKey 	= "my_secret_key"
+	secretKey 				= "my_secret_key"
+	rsaPrivateKeyLocation 	= "../keys/client01_private.pem"
+	rsaPublicKeyLocation 	= "../keys/client01_public.pem"
 )
 
 func init(){
@@ -121,7 +123,11 @@ func main(){
 	repoDB = db_postgre.NewWorkerRepository(dataBaseHelper)
 	redisDB = db_redis.NewRedisRepository(redisHelper)
 
-	workerService := service.NewWorkerService(secretKey, &repoDB, &redisDB)
+	workerService := service.NewWorkerService(	secretKey, 
+												rsaPrivateKeyLocation,
+												rsaPublicKeyLocation,
+												&repoDB, 
+												&redisDB)
 	httpWorkerAdapter := handler.NewHttpWorkerAdapter(workerService)
 	httpServer := handler.NewHttpAppServer(httpAppServer)
 

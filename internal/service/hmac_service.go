@@ -20,20 +20,26 @@ var childLogger = log.With().Str("service", "service").Logger()
 var issuer 	= "xpto corporation"
 
 type WorkerService struct {
-	secretKey			[]byte
-	workerRepository 	*db_postgre.WorkerRepository
-	redisRepository 	*db_redis.RedisRepository
+	secretKey				[]byte
+	rsaPrivateKeyLocation 	string 
+	rsaPublicKeyLocation 	string
+	workerRepository 		*db_postgre.WorkerRepository
+	redisRepository 		*db_redis.RedisRepository
 }
 
 func NewWorkerService(	secretKey string, 
+						rsaPrivateKeyLocation string, 
+						rsaPublicKeyLocation string, 
 						workerRepository *db_postgre.WorkerRepository,
 						redisRepository *db_redis.RedisRepository) *WorkerService{
 	childLogger.Debug().Msg("NewWorkerService")
 
 	return &WorkerService{
-		secretKey:  []byte(secretKey),
-		workerRepository: workerRepository,
-		redisRepository: redisRepository,
+		secretKey:  			[]byte(secretKey),
+		rsaPrivateKeyLocation: 	rsaPrivateKeyLocation,
+		rsaPublicKeyLocation: 	rsaPublicKeyLocation,
+		workerRepository: 		workerRepository,
+		redisRepository: 		redisRepository,
 	}
 }
 
@@ -80,7 +86,7 @@ func (w WorkerService) SignIn(user core.User) (*core.User ,error){
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token.Header["kid"] = user.UserKid
+	token.Header["kid"] = res.UserKid
 	tokenString, err := token.SignedString(w.secretKey)
 	if err != nil {
 		return nil, err

@@ -7,22 +7,20 @@ import (
 	"crypto/x509"
 	"crypto/rsa"
 	"errors"
+	"encoding/json"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"github.com/go-autentication/internal/core"
 	"github.com/go-autentication/internal/erro"
 
 )
 
-var kid 	= "key-id-0001"
-
 func (w WorkerService) getPrivateRSAKey() (*rsa.PrivateKey ,error){
 	childLogger.Debug().Msg("getPrivateRSAKey")
 
-	rsaPrivateKeyLocation := "../keys/client01_private.pem"
-
-	priv, err := ioutil.ReadFile(rsaPrivateKeyLocation)
+	priv, err := ioutil.ReadFile(w.rsaPrivateKeyLocation)
     if err != nil {
 		childLogger.Error().Err(err).Msg("error message")
 		return nil, erro.ErrNoRSAKey
@@ -52,9 +50,7 @@ func (w WorkerService) getPrivateRSAKey() (*rsa.PrivateKey ,error){
 func (w WorkerService) getPublicRSAKey() (*rsa.PublicKey ,error){
 	childLogger.Debug().Msg("getPublicRSAKey")
 
-	rsaPublicKeyLocation := "../keys/client01_public.pem"
-
-	pub, err := ioutil.ReadFile(rsaPublicKeyLocation)
+	pub, err := ioutil.ReadFile(w.rsaPublicKeyLocation)
     if err != nil {
 		childLogger.Error().Err(err).Msg("error message")
 		return nil, erro.ErrNoRSAKey
@@ -80,15 +76,45 @@ func (w WorkerService) getPublicRSAKey() (*rsa.PublicKey ,error){
     }
 	return pubKey, nil
 } 
+
+func (w WorkerService) getRSAKID(user core.User) (*core.User ,error) {
+	childLogger.Debug().Msg("getRSAKID")
+
+	res, err := w.workerRepository.GetConfigJWTUser(user)
+	if err != nil {
+		if errors.Is(err, erro.ErrNotFound) {
+			user.UserKid = uuid.New().String()
+			user.Status = "ACTIVE"
+			res, err = w.workerRepository.AddConfigJWTUser(user)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	user.UserKid = res.UserKid
+	return &user, nil
+}
+
 // ------------------------------
 func (w WorkerService) SignInRSA(user core.User) (*core.User ,error){
 	childLogger.Debug().Msg("SignInRSA")
 
+	// Get private key
 	privateKey, err := w.getPrivateRSAKey()
     if err != nil {
         return nil, err
     }
 
+	// Get/Create the KID
+	res, err := w.getRSAKID(user)
+	if err != nil {
+		return nil, err
+	}
+
+	user.UserKid = res.UserKid
 	expirationTime := time.Now().Add(60 * time.Minute)
 
 	claims := &core.JwtData{
@@ -101,11 +127,12 @@ func (w WorkerService) SignInRSA(user core.User) (*core.User ,error){
 		},
 	}
 
+	// Signed with Private Key
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	token.Header["kid"] = kid
+	token.Header["kid"] = res.UserKid
 	tokenString, err := token.SignedString(privateKey)
 	if err != nil {
-		childLogger.Error().Err(err).Msg("error message")
+		childLogger.Error().Err(err).Msg("Signed with Private Key")
 		return nil, err
 	}
 
@@ -117,6 +144,7 @@ func (w WorkerService) SignInRSA(user core.User) (*core.User ,error){
 func (w WorkerService) VerifyRSA(user core.User) (*core.User ,error){
 	childLogger.Debug().Msg("VerifyRSA")
 
+	// Get Public Key
 	pubKey, err := w.getPublicRSAKey()
     if err != nil {
         return nil, err
@@ -124,9 +152,12 @@ func (w WorkerService) VerifyRSA(user core.User) (*core.User ,error){
 
 	claims := &core.JwtData{}
 
+	// Verify PSS
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return pubKey, nil
 	})
+
+	childLogger.Debug().Interface("",tkn).Msg("token")
 
 	if !tkn.Valid {
 		return nil, erro.ErrTokenInValid
@@ -144,10 +175,19 @@ func (w WorkerService) VerifyRSA(user core.User) (*core.User ,error){
 		return nil, erro.ErrTokenUnHandled
 	}
 
-	//childLogger.Debug().Interface("",tkn).Msg("VerifyRSA")
-	childLogger.Debug().Interface("tkn.Header : ",tkn.Header["kid"]).Msg("***")
-
-	user.Status = "Verified-OK"
+	// Check token in BlackList
+	jsonData, _ := json.Marshal(tkn.Header)
+	var jwtHeader core.JWTHeader
+	err = json.Unmarshal(jsonData, &jwtHeader)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := w.redisRepository.GetKey(jwtHeader.KeyID)
+	if ok == true {
+		return nil, erro.ErrTokenRevoked
+	}
+	
+	user.Status = "Verified-RSA-OK"
 	user.Token = ""
 
 	return &user, nil
@@ -156,6 +196,7 @@ func (w WorkerService) VerifyRSA(user core.User) (*core.User ,error){
 func (w WorkerService) RefreshRSAToken(user core.User) (*core.User ,error){
 	childLogger.Debug().Msg("RefreshRSAToken")
 
+	// Get Public Key
 	pubKey, err := w.getPublicRSAKey()
     if err != nil {
         return nil, err
@@ -163,6 +204,7 @@ func (w WorkerService) RefreshRSAToken(user core.User) (*core.User ,error){
 
 	claims := &core.JwtData{}
 
+	// Verify PSS
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return pubKey, nil
 	})
@@ -183,20 +225,36 @@ func (w WorkerService) RefreshRSAToken(user core.User) (*core.User ,error){
 		return nil, erro.ErrTokenUnHandled
 	}
 
+	// Check token expire date
 	if time.Until(claims.ExpiresAt.Time) > 1*time.Minute {
 		return nil, erro.ErrTokenStillValid
 	}
 
+	// Check Token Blacklist
+	jsonData, _ := json.Marshal(tkn.Header)
+	var jwtHeader core.JWTHeader
+	err = json.Unmarshal(jsonData, &jwtHeader)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := w.redisRepository.GetKey(jwtHeader.KeyID)
+	if ok == true {
+		return nil, erro.ErrTokenRevoked
+	}
+
+	// Prepare a refresh
 	expirationTime := time.Now().Add(5 * time.Minute)
 	claims.ExpiresAt = jwt.NewNumericDate(expirationTime)
 	
+	// Get a Private Key for sign 
 	privateKey, err := w.getPrivateRSAKey()
     if err != nil {
         return nil, err
     }
 	
+	// Sign with private key
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	token.Header["kid"] = kid
+	token.Header["kid"] = "kid"
 	tokenString, err := token.SignedString(privateKey)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("error message")
