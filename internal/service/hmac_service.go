@@ -102,12 +102,13 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 
 	claims := &core.JwtData{}
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, erro.ErrTokenSignatureInvalid
+        }
 		return w.secretKey, nil
 	})
 
-	if !tkn.Valid {
-		return nil, erro.ErrTokenInValid
-	} else if tkn.Valid {
+	if tkn.Valid {
 		// Token valid
 	} else if errors.Is(err, jwt.ErrTokenMalformed){
 		return nil, erro.ErrTokenMalformed
@@ -118,7 +119,7 @@ func (w WorkerService) RefreshToken(user core.User) (*core.User ,error){
 	} else if errors.Is(err, jwt.ErrTokenNotValidYet){ 
 		return nil, erro.ErrTokenNotValidYet
 	} else {
-		return nil, erro.ErrTokenUnHandled
+		return nil, erro.ErrTokenInValid
 	}
 
 	if time.Until(claims.ExpiresAt.Time) > (60 * time.Minute) {
@@ -156,12 +157,13 @@ func (w WorkerService) Verify(user core.User) (*core.User ,error){
 	claims := &core.JwtData{}
 
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, erro.ErrTokenSignatureInvalid
+        }
 		return w.secretKey, nil
 	})
 
-	if !tkn.Valid {
-		return nil, erro.ErrTokenInValid
-	} else if tkn.Valid {
+	 if tkn.Valid {
 		// Token valid
 	} else if errors.Is(err, jwt.ErrTokenMalformed){
 		return nil, erro.ErrTokenMalformed
@@ -172,8 +174,10 @@ func (w WorkerService) Verify(user core.User) (*core.User ,error){
 	} else if errors.Is(err, jwt.ErrTokenNotValidYet){ 
 		return nil, erro.ErrTokenNotValidYet
 	} else {
-		return nil, erro.ErrTokenUnHandled
+		return nil, erro.ErrTokenInValid
 	}
+
+	//childLogger.Debug().Interface("********",claims).Msg("***********")
 
 	jsonData, _ := json.Marshal(tkn.Header)
 	var jwtHeader core.JWTHeader

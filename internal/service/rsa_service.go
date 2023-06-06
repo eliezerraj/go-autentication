@@ -22,7 +22,7 @@ func (w WorkerService) getPrivateRSAKey() (*rsa.PrivateKey ,error){
 
 	priv, err := ioutil.ReadFile(w.rsaPrivateKeyLocation)
     if err != nil {
-		childLogger.Error().Err(err).Msg("error message")
+		childLogger.Error().Err(err).Msg("error message - getPrivateRSAKey")
 		return nil, erro.ErrNoRSAKey
     }
 
@@ -34,7 +34,7 @@ func (w WorkerService) getPrivateRSAKey() (*rsa.PrivateKey ,error){
 	var parsedKey interface{}
 	parsedKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes)
     if err != nil {
-		childLogger.Error().Err(err).Msg("error message")
+		childLogger.Error().Err(err).Msg("error message - getPrivateRSAKey")
         return nil, erro.ErrRSAKeyWrongType
     }
 
@@ -42,6 +42,7 @@ func (w WorkerService) getPrivateRSAKey() (*rsa.PrivateKey ,error){
     var ok bool
     privateKey, ok = parsedKey.(*rsa.PrivateKey)
     if !ok {
+		childLogger.Error().Err(err).Msg("error message - getPrivateRSAKey")
         return nil, erro.ErrRSAKeyWrongType
     }
 	return privateKey, nil
@@ -52,7 +53,7 @@ func (w WorkerService) getPublicRSAKey() (*rsa.PublicKey ,error){
 
 	pub, err := ioutil.ReadFile(w.rsaPublicKeyLocation)
     if err != nil {
-		childLogger.Error().Err(err).Msg("error message")
+		childLogger.Error().Err(err).Msg("error message - getPublicRSAKey")
 		return nil, erro.ErrNoRSAKey
     }
 
@@ -64,7 +65,7 @@ func (w WorkerService) getPublicRSAKey() (*rsa.PublicKey ,error){
 	var parsedKey interface{}
 	parsedKey, err = x509.ParsePKIXPublicKey(pubPem.Bytes)
     if err != nil {
-		childLogger.Error().Err(err).Msg("error message")
+		childLogger.Error().Err(err).Msg("error message - getPublicRSAKey")
         return nil, erro.ErrRSAKeyWrongType
     }
 
@@ -72,6 +73,7 @@ func (w WorkerService) getPublicRSAKey() (*rsa.PublicKey ,error){
     var ok bool
     pubKey, ok = parsedKey.(*rsa.PublicKey)
     if !ok {
+		childLogger.Error().Err(err).Msg("error message - getPublicRSAKey")
         return nil, erro.ErrRSAKeyWrongType
     }
 	return pubKey, nil
@@ -154,15 +156,17 @@ func (w WorkerService) VerifyRSA(user core.User) (*core.User ,error){
 
 	// Verify PSS
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			childLogger.Error().Err(err).Msg("ErrTokenSignatureInvalid - VerifyRSA")
+            return nil, erro.ErrTokenSignatureInvalid
+        }
 		return pubKey, nil
 	})
 
-	childLogger.Debug().Interface("",tkn).Msg("token")
+	childLogger.Debug().Interface("",tkn).Msg("**** token")
 
-	if !tkn.Valid {
-		return nil, erro.ErrTokenInValid
-	} else if tkn.Valid {
-		// Token valid
+	if tkn.Valid {
+		//
 	} else if errors.Is(err, jwt.ErrTokenMalformed){
 		return nil, erro.ErrTokenMalformed
 	} else if errors.Is(err, jwt.ErrTokenSignatureInvalid){
@@ -172,7 +176,7 @@ func (w WorkerService) VerifyRSA(user core.User) (*core.User ,error){
 	} else if errors.Is(err, jwt.ErrTokenNotValidYet){ 
 		return nil, erro.ErrTokenNotValidYet
 	} else {
-		return nil, erro.ErrTokenUnHandled
+		return nil, erro.ErrTokenInValid
 	}
 
 	// Check token in BlackList
@@ -206,12 +210,14 @@ func (w WorkerService) RefreshRSAToken(user core.User) (*core.User ,error){
 
 	// Verify PSS
 	tkn, err := jwt.ParseWithClaims(user.Token, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			childLogger.Error().Err(err).Msg("ErrTokenSignatureInvalid - VerifyRSA")
+            return nil, erro.ErrTokenSignatureInvalid
+        }
 		return pubKey, nil
 	})
 
-	if !tkn.Valid {
-		return nil, erro.ErrTokenInValid
-	} else if tkn.Valid {
+	if tkn.Valid {
 		// Token valid
 	} else if errors.Is(err, jwt.ErrTokenMalformed){
 		return nil, erro.ErrTokenMalformed
@@ -222,7 +228,7 @@ func (w WorkerService) RefreshRSAToken(user core.User) (*core.User ,error){
 	} else if errors.Is(err, jwt.ErrTokenNotValidYet){ 
 		return nil, erro.ErrTokenNotValidYet
 	} else {
-		return nil, erro.ErrTokenUnHandled
+		return nil, erro.ErrTokenInValid
 	}
 
 	// Check token expire date

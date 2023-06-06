@@ -40,7 +40,7 @@ var (
 	ErrTokenStillValid	= errors.New("O Token ainda está válido, fazer o refresh com 10 minutos antes da expiração")
 	ErrTokenInValid		= errors.New("O Token está inválido")
 	ErrTokenMalformed	= errors.New("O Token mal formado")
-	ErrTokenSignatureInvalid	= errors.New("O Token com assinatura inválido")
+	ErrTokenSignatureInvalid	= errors.New("Token com assinatura inválida")
 	ErrTokenExpired		= errors.New("O Token expirado")
 	ErrTokenNotValidYet	= errors.New("O Token não validado")
 	ErrTokenUnHandled	= errors.New("O Token impossivel de validar")
